@@ -1,4 +1,5 @@
 """
+QUESTA VERSIONE MIA
 The :mod:`sklearn.naive_bayes` module implements Naive Bayes algorithms. These
 are supervised learning methods based on applying Bayes' theorem with strong
 (naive) feature independence assumptions.
@@ -17,6 +18,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from numbers import Integral, Real
 
+
 import numpy as np
 from scipy.special import logsumexp
 
@@ -26,6 +28,7 @@ from .utils._param_validation import Hidden, Interval, StrOptions
 from .utils.extmath import safe_sparse_dot
 from .utils.multiclass import _check_partial_fit_first_call
 from .utils.validation import _check_sample_weight, check_is_fitted, check_non_negative
+from .utils.bitwise_arithmetics import bitwise_multiply, bitwise_power, bitwise_sum
 
 __all__ = [
     "BernoulliNB",
@@ -237,6 +240,7 @@ class GaussianNB(_BaseNB):
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y, sample_weight=None):
+
         """Fit Gaussian Naive Bayes according to X, y.
 
         Parameters
@@ -313,31 +317,33 @@ class GaussianNB(_BaseNB):
 
         # Compute (potentially weighted) mean and variance of new datapoints
         if sample_weight is not None:
-            n_new = float(sample_weight.sum())
+            n_new = int(sample_weight.sum())
             if np.isclose(n_new, 0.0):
                 return mu, var
-            new_mu = np.average(X, axis=0, weights=sample_weight)
-            new_var = np.average((X - new_mu) ** 2, axis=0, weights=sample_weight)
+            new_mu = int(np.average(X, axis=0, weights=sample_weight))
+            new_var = int(np.average((X - new_mu) ** 2), axis=0, weights=sample_weight)
         else:
-            n_new = X.shape[0]
+            n_new = int(X.shape[0])
             new_var = np.var(X, axis=0)
             new_mu = np.mean(X, axis=0)
 
-        if n_past == 0:
+        if n_past == 0: 
             return new_mu, new_var
+        
+        n_total = bitwise_sum(n_past, n_new)
 
-        n_total = float(n_past + n_new)
-
+        
         # Combine mean of old and new data, taking into consideration
         # (weighted) number of observations
-        total_mu = (n_new * new_mu + n_past * mu) / n_total
+        total_mu = int((bitwise_sum(bitwise_multiply(n_new, new_mu), bitwise_multiply(n_past, mu)) / n_total))
 
         # Combine variance of old and new data, taking into consideration
         # (weighted) number of observations. This is achieved by combining
         # the sum-of-squared-differences (ssd)
-        old_ssd = n_past * var
-        new_ssd = n_new * new_var
-        total_ssd = old_ssd + new_ssd + (n_new * n_past / n_total) * (mu - new_mu) ** 2
+        old_ssd = bitwise_multiply(n_past, var)
+        new_ssd = bitwise_multiply(n_new, new_var)
+        """TO DO"""
+        total_ssd = old_ssd + new_ssd + (bitwise_multiply(n_new, n_past) / n_total) * bitwise_power((mu - new_mu), 2)
         total_var = total_ssd / n_total
 
         return total_mu, total_var
@@ -428,7 +434,8 @@ class GaussianNB(_BaseNB):
         # will cause numerical errors. To address this, we artificially
         # boost the variance by epsilon, a small fraction of the standard
         # deviation of the largest dimension.
-        self.epsilon_ = self.var_smoothing * np.var(X, axis=0).max()
+                
+        self.epsilon_ = bitwise_multiply(self.var_smoothing, int(np.var(X, axis=0).max()))
 
         if first_call:
             # This is the first call to partial_fit:
@@ -503,6 +510,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
+    #non si può refactorizzare poichè usa matrici e array
     def _joint_log_likelihood(self, X):
         joint_log_likelihood = []
         for i in range(np.size(self.classes_)):
@@ -510,6 +518,7 @@ class GaussianNB(_BaseNB):
             n_ij = -0.5 * np.sum(np.log(2.0 * np.pi * self.var_[i, :]))
             n_ij -= 0.5 * np.sum(((X - self.theta_[i, :]) ** 2) / (self.var_[i, :]), 1)
             joint_log_likelihood.append(jointi + n_ij)
+            
 
         joint_log_likelihood = np.array(joint_log_likelihood).T
         return joint_log_likelihood

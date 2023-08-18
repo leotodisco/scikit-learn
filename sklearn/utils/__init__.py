@@ -39,6 +39,7 @@ from .validation import (
     indexable,
 )
 
+
 # Do not deprecate parallel_backend and register_parallel_backend as they are
 # needed to tune `scikit-learn` behavior and have different effect if called
 # from the vendored version or or the site-package version. The other are

@@ -35,6 +35,7 @@ from ..base import (
 from ..preprocessing._data import _is_constant_feature
 from ..utils import check_array, check_random_state
 from ..utils._array_api import get_namespace
+from ..utils.bitwise_arithmetics import bitwise_multiply, bitwise_power, bitwise_sum
 from ..utils._seq_dataset import (
     ArrayDataset32,
     ArrayDataset64,
@@ -721,10 +722,10 @@ class LinearRegression(MultiOutputMixin, RegressorMixin, LinearModel):
             if has_sw:
 
                 def matvec(b):
-                    return X.dot(b) - sample_weight_sqrt * b.dot(X_offset_scale)
+                    return X.dot(b) - bitwise_multiply(sample_weight_sqrt, b.dot(X_offset_scale))
 
                 def rmatvec(b):
-                    return X.T.dot(b) - X_offset_scale * b.dot(sample_weight_sqrt)
+                    return X.T.dot(b) - bitwise_multiply(X_offset_scale, b.dot(sample_weight_sqrt))
 
             else:
 
@@ -732,7 +733,7 @@ class LinearRegression(MultiOutputMixin, RegressorMixin, LinearModel):
                     return X.dot(b) - b.dot(X_offset_scale)
 
                 def rmatvec(b):
-                    return X.T.dot(b) - X_offset_scale * b.sum()
+                    return X.T.dot(b) - bitwise_multiply(X_offset_scale, b.sum())
 
             X_centered = sparse.linalg.LinearOperator(
                 shape=X.shape, matvec=matvec, rmatvec=rmatvec
@@ -796,8 +797,8 @@ def _check_precomputed_gram_matrix(
     """
 
     n_features = X.shape[1]
-    f1 = n_features // 2
-    f2 = min(f1 + 1, n_features - 1)
+    f1 = n_features >> 1
+    f2 = min(bitwise_sum(f1, 1), n_features - 1)
 
     v1 = (X[:, f1] - X_offset[f1]) * X_scale[f1]
     v2 = (X[:, f2] - X_offset[f2]) * X_scale[f2]
